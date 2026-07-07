@@ -47,7 +47,7 @@ KeyFinder یک ابزار امنیتی برای شناسایی کلیدهای AP
 ## نصب و اجرا
 
 1. **دریافت توکن گیت‌هاب**  
-   به آدرس https://github.com/settings/tokens/new مراجعه کرده و یک توکن جدید با دسترسی `public_repo` بسازید.
+   به آدرس https://github.com/settings/tokens مراجعه کرده و یک توکن جدید با دسترسی `public_repo` بسازید.
 
 2. **ساخت پروژه**
 
