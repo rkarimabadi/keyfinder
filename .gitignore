@@ -1,0 +1,42 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.log
+*.vs/
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm64]/
+
+# NuGet
+packages/
+*.nupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+
+# IDE files
+.idea/
+*.sln.docstates
+.vscode/
+
+# OS files
+Thumbs.db
+*.DS_Store
+
+# Config with secrets - keep settings.json out of git
+settings.json
+config.json
+config.toml
+
+# Results
+results/
