@@ -33,6 +33,9 @@ public class ScanConfig
 {
     [JsonProperty("max_results")]
     public int MaxResults { get; set; } = 100;
+
+    [JsonProperty("recency_days")]
+    public int RecencyDays { get; set; } = 0;
 }
 
 public class OutputConfig

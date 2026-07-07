@@ -25,11 +25,13 @@ public partial class MainForm : Form
     private ToolStripProgressBar progressBar;
     private CheckBox chkVerifyOnScan;
     private NumericUpDown numMaxResults;
+    private ComboBox cmbRecency;
 
     public MainForm()
     {
         Text = "KeyFinder - GitHub API Key Scanner";
         Size = new Size(1200, 800);
+        MinimumSize = new Size(900, 600);
         StartPosition = FormStartPosition.CenterScreen;
         Icon = SystemIcons.Shield;
 
@@ -39,15 +41,19 @@ public partial class MainForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 3,
-            Padding = new Padding(10)
+            RowCount = 5,
+            Padding = new Padding(8),
+            BackColor = Color.FromArgb(245, 245, 250)
         };
 
         var topPanel = CreateTopPanel();
         mainPanel.Controls.Add(topPanel, 0, 0);
 
+        var controlsPanel = CreateControlsPanel();
+        mainPanel.Controls.Add(controlsPanel, 0, 1);
+
         dgvResults = CreateResultsGrid();
-        mainPanel.Controls.Add(dgvResults, 0, 1);
+        mainPanel.Controls.Add(dgvResults, 0, 2);
 
         txtLog = new RichTextBox
         {
@@ -57,18 +63,22 @@ public partial class MainForm : Form
             ForeColor = Color.Lime,
             Font = new Font("Consolas", 9),
             WordWrap = false,
-            MaxLength = 1_000_000
+            MaxLength = 1_000_000,
+            BorderStyle = BorderStyle.None
         };
-        mainPanel.Controls.Add(txtLog, 0, 2);
+        var logPanel = new Panel { Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle };
+        logPanel.Controls.Add(txtLog);
+        mainPanel.Controls.Add(logPanel, 0, 3);
 
         mainPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        mainPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 55));
+        mainPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        mainPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 60));
         mainPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 30));
 
         Controls.Add(mainPanel);
 
-        statusStrip = new StatusStrip();
-        lblStatus = new ToolStripStatusLabel("Ready");
+        statusStrip = new StatusStrip { BackColor = Color.FromArgb(30, 30, 30), ForeColor = Color.White };
+        lblStatus = new ToolStripStatusLabel("Ready") { ForeColor = Color.White };
         progressBar = new ToolStripProgressBar { Visible = false, Style = ProgressBarStyle.Marquee };
         statusStrip.Items.Add(lblStatus);
         statusStrip.Items.Add(progressBar);
@@ -77,74 +87,100 @@ public partial class MainForm : Form
 
     private Panel CreateTopPanel()
     {
-        var panel = new Panel { Dock = DockStyle.Fill, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
+        var panel = new Panel { Dock = DockStyle.Fill, Height = 36, Margin = new Padding(0) };
 
-        var tokenPanel = new FlowLayoutPanel
+        var table = new TableLayoutPanel
         {
-            Dock = DockStyle.Top,
-            FlowDirection = FlowDirection.LeftToRight,
-            AutoSize = true,
-            Padding = new Padding(0, 0, 0, 5)
+            Dock = DockStyle.Fill,
+            ColumnCount = 5,
+            RowCount = 1,
+            Padding = new Padding(0)
         };
-        tokenPanel.Controls.Add(new Label { Text = "GitHub Token:", AutoSize = true, Anchor = AnchorStyles.Left });
+
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+
+        table.Controls.Add(new Label
+        {
+            Text = "GitHub Token:", AutoSize = true, Anchor = AnchorStyles.Left,
+            Font = new Font("Segoe UI", 9, FontStyle.Bold), Margin = new Padding(0, 0, 4, 0)
+        }, 0, 0);
+
         txtToken = new TextBox
         {
             Text = _config.GitHub.Tokens.Count > 0 ? _config.GitHub.Tokens[0] : "",
-            Width = 500,
-            Anchor = AnchorStyles.Left | AnchorStyles.Right
+            Anchor = AnchorStyles.Left | AnchorStyles.Right,
+            Font = new Font("Consolas", 9),
+            Margin = new Padding(0, 0, 6, 0)
         };
-        tokenPanel.Controls.Add(txtToken);
-        panel.Controls.Add(tokenPanel);
+        table.Controls.Add(txtToken, 1, 0);
 
-        var controlsPanel = new FlowLayoutPanel
+        btnScan = new Button { Text = "Scan", Width = 90, Height = 30, BackColor = Color.DodgerBlue, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Margin = new Padding(0, 0, 4, 0) };
+        btnScan.Click += BtnScan_Click;
+        table.Controls.Add(btnScan, 2, 0);
+
+        btnStop = new Button { Text = "Stop", Width = 90, Height = 30, BackColor = Color.Crimson, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Enabled = false, Margin = new Padding(0, 0, 4, 0) };
+        btnStop.Click += BtnStop_Click;
+        table.Controls.Add(btnStop, 3, 0);
+
+        var settingsBtn = new Button { Text = "⚙ Settings", Width = 90, Height = 30, FlatStyle = FlatStyle.Flat, Margin = new Padding(0) };
+        settingsBtn.Click += (_, _) =>
         {
-            Dock = DockStyle.Top,
-            FlowDirection = FlowDirection.LeftToRight,
-            AutoSize = true,
-            Padding = new Padding(0, 0, 0, 5)
+            var result = MessageBox.Show($"Token: {txtToken.Text}\n\nProvider: {cmbProvider.SelectedItem}\nMax Results: {numMaxResults.Value}\nRecency: {cmbRecency.SelectedItem}\nVerify on scan: {chkVerifyOnScan.Checked}\n\nSettings saved to:\n{ConfigPath}",
+                "Settings Overview", MessageBoxButtons.OK, MessageBoxIcon.Information);
         };
-        controlsPanel.Controls.Add(new Label { Text = "Provider:", AutoSize = true, Anchor = AnchorStyles.Left });
-        cmbProvider = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 180 };
+        table.Controls.Add(settingsBtn, 4, 0);
+
+        panel.Controls.Add(table);
+        return panel;
+    }
+
+    private Panel CreateControlsPanel()
+    {
+        var panel = new Panel { Dock = DockStyle.Fill, Height = 34, Margin = new Padding(0, 4, 0, 4) };
+
+        var flow = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            Padding = new Padding(0),
+            AutoSize = true
+        };
+
+        flow.Controls.Add(new Label { Text = "Provider:", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9, FontStyle.Bold) });
+        cmbProvider = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160 };
         cmbProvider.Items.Add("all");
         foreach (var (name, id, _) in PatternProvider.GetAll())
             cmbProvider.Items.Add(id);
         cmbProvider.SelectedIndex = 0;
-        controlsPanel.Controls.Add(cmbProvider);
+        flow.Controls.Add(cmbProvider);
 
-        controlsPanel.Controls.Add(new Label { Text = "Max Results:", AutoSize = true, Anchor = AnchorStyles.Left });
-        numMaxResults = new NumericUpDown { Minimum = 10, Maximum = 1000, Value = _config.Scan.MaxResults, Width = 80 };
-        controlsPanel.Controls.Add(numMaxResults);
+        flow.Controls.Add(new Label { Text = "Max:", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(8, 0, 2, 0) });
+        numMaxResults = new NumericUpDown { Minimum = 10, Maximum = 1000, Value = _config.Scan.MaxResults, Width = 70 };
+        flow.Controls.Add(numMaxResults);
 
-        chkVerifyOnScan = new CheckBox { Text = "Verify on scan", AutoSize = true };
-        controlsPanel.Controls.Add(chkVerifyOnScan);
+        flow.Controls.Add(new Label { Text = "Recency:", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(8, 0, 2, 0) });
+        cmbRecency = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110 };
+        cmbRecency.Items.AddRange(new[] { "Any time", "Last 24h", "Last 7 days", "Last 30 days", "Last 90 days", "Last year" });
+        cmbRecency.SelectedIndex = _config.Scan.RecencyDays switch { 1 => 1, 7 => 2, 30 => 3, 90 => 4, 365 => 5, _ => 0 };
+        flow.Controls.Add(cmbRecency);
 
-        btnScan = new Button { Text = "Scan", Width = 100, Height = 30, BackColor = Color.DodgerBlue, ForeColor = Color.White };
-        btnScan.Click += BtnScan_Click;
-        controlsPanel.Controls.Add(btnScan);
+        chkVerifyOnScan = new CheckBox { Text = "Auto-verify", AutoSize = true, Margin = new Padding(10, 2, 0, 0) };
+        flow.Controls.Add(chkVerifyOnScan);
 
-        btnStop = new Button { Text = "Stop", Width = 100, Height = 30, BackColor = Color.Crimson, ForeColor = Color.White, Enabled = false };
-        btnStop.Click += BtnStop_Click;
-        controlsPanel.Controls.Add(btnStop);
-
-        btnVerify = new Button { Text = "Verify Selected", Width = 120, Height = 30, Enabled = false };
+        btnVerify = new Button { Text = "Verify Selected", Width = 110, Height = 28, Enabled = false, FlatStyle = FlatStyle.Flat, Margin = new Padding(8, 0, 4, 0) };
         btnVerify.Click += BtnVerify_Click;
-        controlsPanel.Controls.Add(btnVerify);
+        flow.Controls.Add(btnVerify);
 
-        btnExport = new Button { Text = "Export JSON", Width = 100, Height = 30, Enabled = false };
+        btnExport = new Button { Text = "Export", Width = 80, Height = 28, Enabled = false, FlatStyle = FlatStyle.Flat, Margin = new Padding(0, 0, 0, 0) };
         btnExport.Click += BtnExport_Click;
-        controlsPanel.Controls.Add(btnExport);
+        flow.Controls.Add(btnExport);
 
-        panel.Controls.Add(controlsPanel);
-
-        var lblBanner = new Label
-        {
-            Text = "▓▓▓▓▓▓▓▓▓▓▓ ▓▓▓▓▓▓▓▓▓▓▓ ▓▓▓▓▓▓▓▓▓▓▓ ▓▓▓▓▓▓▓▓▓▓▓ ▓▓▓▓▓▓▓▓▓▓▓ ▓▓▓▓▓▓▓▓▓▓▓\r\n▓ KeyFinder ▓ ▓ GitHub   ▓ ▓ API Key  ▓ ▓ Scanner   ▓ ▓ v1.0     ▓ ▓ by fadidevv\r\n▓▓▓▓▓▓▓▓▓▓▓ ▓▓▓▓▓▓▓▓▓▓▓ ▓▓▓▓▓▓▓▓▓▓▓ ▓▓▓▓▓▓▓▓▓▓▓ ▓▓▓▓▓▓▓▓▓▓▓ ▓▓▓▓▓▓▓▓▓▓▓",
-            Font = new Font("Consolas", 8),
-            ForeColor = Color.Cyan,
-            AutoSize = true
-        };
-        panel.Controls.Add(lblBanner);
-
+        panel.Controls.Add(flow);
         return panel;
     }
 
@@ -258,6 +294,10 @@ public partial class MainForm : Form
 
         _config.GitHub.Tokens = new() { txtToken.Text.Trim() };
         _config.Scan.MaxResults = (int)numMaxResults.Value;
+        _config.Scan.RecencyDays = cmbRecency.SelectedIndex switch
+        {
+            1 => 1, 2 => 7, 3 => 30, 4 => 90, 5 => 365, _ => 0
+        };
         SaveConfig();
 
         _scanner = new ScannerService(_config);

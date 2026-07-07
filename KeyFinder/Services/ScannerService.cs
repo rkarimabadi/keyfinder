@@ -73,7 +73,10 @@ public class ScannerService
 
     private async Task SearchAndExtract(string searchTerm, string provider, IProgress<ScanProgress> progress)
     {
-        var queries = new[] { searchTerm, $"{searchTerm} filename:.env" };
+        var recencyQualifier = _config.Scan.RecencyDays > 0
+            ? $" pushed:>={DateTime.UtcNow.AddDays(-_config.Scan.RecencyDays):yyyy-MM-dd}"
+            : "";
+        var queries = new[] { $"{searchTerm}{recencyQualifier}", $"{searchTerm} filename:.env{recencyQualifier}" };
         var page = 1;
         var perPage = 30;
         var maxPages = Math.Clamp(_config.Scan.MaxResults / perPage, 1, 10);
